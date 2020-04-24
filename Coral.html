@@ -1,0 +1,129 @@
+<html>
+<head>
+<script>
+// Coral pixel effect
+// minimalsanity
+// Apr 2020
+
+/* Global variables, because I'm a filthy hack.
+ */
+var canvas, ctx, img;
+var w, h, scale;
+
+/* Initialize the program
+ */
+function init() {
+
+	// Create a new canvas
+	canvas = document.getElementById("canvas");
+	ctx = canvas.getContext("2d");
+	
+	// Create a framebuffer image to draw pixels into, rather than plotting directly to the screen
+	// This allows us to read back pixel values from the image to achieve the coral deposition effect
+	//
+	// The scale variable is used to scale the pixels up for that retro look and acts as a shift
+	scale = 1;
+	w = canvas.width >> scale;
+	h = canvas.height >> scale;
+	img = ctx.createImageData(w << scale, h << scale);
+	
+	// Fill the image with a random noise of dark blue pixels
+	for (var x = 0; x < w; x++) {
+		for (var y = 0; y < h; y++) {
+			setPixel(x, y, 0, rnd(0, 16) + ((h - y) * 32 / h), rnd(0, 40) + ((h - y) * 100 / h));
+		}
+	}
+	
+	// Seed the bottom of the screen with some patches of pixels to grow the coral from
+	for (var i = 0; i < 10; i++) {
+		var x = Math.floor(Math.random() * w);
+		for (var j = -1; j <= 1; j++) {
+			setPixel(x + j, h - 1, rnd(128, 255), rnd(128, 255), rnd(128, 255))
+		}
+	}
+	
+	// Plot the initial image to the canvas and set up a timer to call the frameCallback every 60ms
+	ctx.putImageData(img, 0, 0);
+	window.setInterval(frameCallback, 60);
+}
+
+
+/* Called every frame to update the image
+ */
+function frameCallback() {
+
+	// Try to add 30 new pixels to the coral
+	for (var i = 0; i < 30; i++) {
+	
+		// Pick a random x position across the screen
+		var x = Math.floor(Math.random() * w), y;
+		var c;
+		
+		// Drop a scan down from the top of the screen to see if we hit a coral pixel
+		for (y = 0; y < h; y++) {
+		
+			// Check immediately below
+			c = getPixel(x, y + 1)
+			if (c.r != 0) break;
+			
+			// Check below left
+			c = getPixel(x - 1, y + 1);
+			if (c.r != 0) break;
+			
+			// Check below right
+			c = getPixel(x + 1, y + 1);
+			if (c.r != 0) break;
+		}
+		
+		// Wherever our scan stopped, draw a new coral pixel, based on the colour of the one we hit
+		setPixel(x, y, c.r + rnd(-4, 4), c.g + rnd(-4, 4), c.b + rnd(-4, 4))
+	}
+	
+	// Draw the updated image to the canvas
+	ctx.putImageData(img, 0, 0);
+}
+
+
+/* Samples the colour of a pixel within the framebuffer image
+ * Returns an object with named members for each colour component
+ * If the pixel is outside of the image, returns black
+ */
+function getPixel(x, y) {
+	if (x < 0 || x >= w || y < 0 || y >= h) return {"r": 0, "g": 0, "b": 0}
+	var i = ((x << scale) + ((y << scale) * (w << scale))) * 4;
+	return {"r": img.data[i], "g": img.data[i + 1], "b": img.data[i + 2]};
+}
+
+
+/* Sets the colour of a pixel in the framebuffer image
+ */
+function setPixel(x, y, r, g, b) {
+	if (x < 0 || x >= w || y < 0 || y >= h) return;
+	for (var i = 0; i < (1 << scale); i++) {
+		for (var j = 0; j < (1 << scale); j++) {
+			var u = i + (x << scale);
+			var v = j + (y << scale);
+			var q = (u + (v * (w << scale))) * 4;
+			img.data[q] = r;
+			img.data[q + 1] = g;
+			img.data[q + 2] = b;
+			img.data[q + 3] = 255;
+		}
+	}
+}
+
+
+/* Creates a random integer between l and h
+ */
+function rnd(l, h) {
+	return Math.round((Math.random() * (h - l)) + l);
+}
+
+window.onload = init;
+</script>
+<title>Coral</title>
+</head>
+<body>
+<canvas id="canvas" width="640" height="480"></canvas>
+</body>
+</html>
